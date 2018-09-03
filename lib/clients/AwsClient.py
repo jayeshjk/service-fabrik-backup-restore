@@ -167,15 +167,9 @@ class AwsClient(BaseClient):
                 snapshot.id, snapshot.volume_size, snapshot.start_time, snapshot.state)
             self._add_snapshot(snapshot.id)
 
-            self.ec2.create_tags(
-                Resources=[
-                    snapshot.id
-                ],
-                Tags=self.formatted_tags
-            )
-
-            self.logger.info('{} SUCCESS: snapshot-id={}, volume-id={} with tags {}'.format(
-                log_prefix, snapshot.id, volume_id, self.formatted_tags))
+            self.logger.info('{} SUCCESS: snapshot-id={}, volume-id={} '.format(
+                log_prefix, snapshot.id, volume_id))
+        
         except Exception as error:
             message = '{} ERROR: volume-id={} and tags={}\n{}'.format(
                 log_prefix, volume_id, self.formatted_tags, error)
@@ -184,6 +178,23 @@ class AwsClient(BaseClient):
                 self.delete_snapshot(snapshot.id)
                 snapshot = None
             raise Exception(message)
+
+        # handling create_tags separately
+        try:
+            self.ec2.create_tags(
+                Resources=[
+                    snapshot.id
+                ],
+                Tags=self.formatted_tags
+            )
+        except Exception as error:
+            message = '{} ERROR: Could not create tags for snapshot-id={}, volume-id={} and tags={}\n{}. Ignoring error...'.format(
+                log_prefix, snapshot.id, volume_id, self.formatted_tags, error)
+            self.logger.error(message)
+            return snapshot # don't raise exception and continue with backup operation 
+
+        self.logger.info('{} SUCCESS: snapshot-id={} with tags {}'.format(
+            log_prefix, snapshot.id, self.formatted_tags))
 
         return snapshot
 
@@ -211,12 +222,6 @@ class AwsClient(BaseClient):
                 log_prefix, snapshot.id, snapshot_id))
             self.output_json['snapshotId'] = snapshot.id
 
-            self.ec2.create_tags(
-                Resources=[
-                    snapshot.id
-                ],
-                Tags=self.formatted_tags
-            )
 
         except Exception as error:
             message = '{} ERROR: snapshot-id={}\n{}'.format(
@@ -226,6 +231,23 @@ class AwsClient(BaseClient):
                 self.delete_snapshot(snapshot.id)
                 snapshot = None
             raise Exception(message)
+
+        # handling create_tags separately
+        try:
+            self.ec2.create_tags(
+                Resources=[
+                    snapshot.id
+                ],
+                Tags=self.formatted_tags
+            )
+        except Exception as error:
+            message = '{} ERROR: Could not create tags for snapshot-id={} and tags={}\n{}. Ignoring error...'.format(
+                log_prefix, snapshot.id, self.formatted_tags, error)
+            self.logger.error(message)
+            return snapshot # don't raise exception and continue with operation 
+
+        self.logger.info('{} SUCCESS: snapshot-id={} with tags {}'.format(
+            log_prefix, snapshot.id, self.formatted_tags))
 
         return snapshot
 
